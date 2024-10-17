@@ -1,4 +1,5 @@
 from flask import Flask, jsonify, request
+from requests import delete
 from database import db
 from login_manager import (
     login_manager,
@@ -94,10 +95,34 @@ def read_user(id_user):
 @app.route("/user/<int:id_user>", methods=["PUT"])
 @login_required
 def update_user(id_user):
+    if not request.is_json:
+        return jsonify({"error": "A solicitação deve ser em JSON"}), 400
+
+    data = request.json
     user = User.query.get(id_user)
 
+    if data is None or "password" not in data:
+        return jsonify({"error": "Nao encontrado username ou password"}), 400
+
+    if user and data.get("password"):
+        user.password = data.get("password")
+        return jsonify({"message": f"Usuário {id_user} atualizado como sucesso"})
+
+    return jsonify({"message": "Usuário nao encontrado"}), 404
+
+
+@app.route("/user/<int:id_user>", methods=["DELETE"])
+@login_required
+def delete_user(id_user):
+    user = User.query.get(id_user)
+
+    if id_user != current_user.id:
+        return jsonify({"message": "Nao permitida a exclusão desse usuário"}), 403
+
     if user:
-        return {"username": user.username}
+        db.session.delete(user)
+        db.session.commit()
+        return jsonify({"message": f"Usuário {id_user} deletado com sucesso"})
 
     return jsonify({"message": "Usuário nao encontrado"}), 404
 
